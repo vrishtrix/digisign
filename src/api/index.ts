@@ -22,7 +22,7 @@ api.post('/digisign/uploadpfx', (ctx) => {
 });
 
 api.post('/digisign/signpdf', async (ctx) => {
-	if (ctx.req.header('Content-Type') !== 'multipart/form-data') {
+	if (!ctx.req.header('Content-Type')?.includes('multipart/form-data')) {
 		ctx.status(415);
 		return ctx.body(
 			'This endpoint only supports the multipart/form-data content type.',
@@ -39,8 +39,8 @@ api.post('/digisign/signpdf', async (ctx) => {
 		signWidth,
 	} = await ctx.req.parseBody<SignPdfRequestParams>();
 
-	const pdfBuffer = await (file as File).arrayBuffer();
-	const certificateBuffer = new Buffer('certificate'); // TODO: Replace with actual certificate
+	const pdfBuffer = await file.arrayBuffer();
+	const certificateBuffer = Buffer.from('', 'base64'); // TODO: Replace with actual certificate
 
 	const pdfDoc = await PDFDocument.load(pdfBuffer);
 
@@ -58,11 +58,12 @@ api.post('/digisign/signpdf', async (ctx) => {
 		contactInfo: '',
 		name: '',
 		widgetRect,
+		signatureLength: 12580,
 	});
 
 	const pdfWithPlaceholderBytes = await pdfDoc.save();
 
-	const signer = new P12Signer(certificateBuffer);
+	const signer = new P12Signer(certificateBuffer, { passphrase: 'emudhra' });
 	const signedPdf = await signpdf.sign(pdfWithPlaceholderBytes, signer);
 
 	return ctx.body(signedPdf.toString('base64'), 201);
