@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { env } from 'hono/adapter';
-import { csrf } from 'hono/csrf';
+import { cors } from 'hono/cors';
 import { jwt } from 'hono/jwt';
 import { prettyJSON } from 'hono/pretty-json';
 import { timeout } from 'hono/timeout';
@@ -18,14 +18,9 @@ type Bindings = {
 const app = new Hono<{ Bindings: Bindings; Variables: JwtVariables }>();
 
 // Registering app-level middlewares
+app.use('/api/*', cors());
 app.use(prettyJSON({ space: 4 }));
 app.use('/api', timeout(10 * 1000));
-
-app.use(
-	csrf({
-		origin: process.env.CSRF_ORIGIN ?? 'localhost',
-	}),
-);
 
 app.use('/api/digisign/*', (ctx, next) => {
 	const jwtMiddleware = jwt({
