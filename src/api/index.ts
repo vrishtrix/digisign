@@ -1,4 +1,11 @@
 import { Hono } from 'hono';
+import { PDFDocument } from 'pdf-lib';
+
+import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
+import { P12Signer } from '@signpdf/signer-p12';
+import signpdf from '@signpdf/signpdf';
+
+import type { SignPdfRequestParams } from '@/types';
 
 const api = new Hono();
 
@@ -14,8 +21,51 @@ api.post('/digisign/uploadpfx', (ctx) => {
 	return ctx.body('PFX Fule upload successful');
 });
 
-api.post('/digisign/signpdf', (ctx) => {
-	return ctx.body('PDF signed successfully');
+api.post('/digisign/signpdf', async (ctx) => {
+	if (ctx.req.header('Content-Type') !== 'multipart/form-data') {
+		ctx.status(415);
+		return ctx.body(
+			'This endpoint only supports the multipart/form-data content type.',
+		);
+	}
+
+	const {
+		file,
+		signReason,
+		signLocation,
+		pointX,
+		pointY,
+		signHeight,
+		signWidth,
+	} = await ctx.req.parseBody<SignPdfRequestParams>();
+
+	const pdfBuffer = await (file as File).arrayBuffer();
+	const certificateBuffer = new Buffer('certificate'); // TODO: Replace with actual certificate
+
+	const pdfDoc = await PDFDocument.load(pdfBuffer);
+
+	const widgetRect = [
+		Number.parseInt(pointX),
+		Number.parseInt(pointY),
+		Number.parseInt(signHeight),
+		Number.parseInt(signWidth),
+	];
+
+	pdflibAddPlaceholder({
+		pdfDoc,
+		reason: signReason ?? '',
+		location: signLocation ?? '',
+		contactInfo: '',
+		name: '',
+		widgetRect,
+	});
+
+	const pdfWithPlaceholderBytes = await pdfDoc.save();
+
+	const signer = new P12Signer(certificateBuffer);
+	const signedPdf = await signpdf.sign(pdfWithPlaceholderBytes, signer);
+
+	return ctx.body(signedPdf.toString('base64'), 201);
 });
 
 export default api;
