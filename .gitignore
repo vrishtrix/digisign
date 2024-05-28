@@ -1,4 +1,11 @@
 # deps
 node_modules/
 
+# environment variables
+!.env.example
+.env
+.env.*
+
+
+# misc
 .DS_Store

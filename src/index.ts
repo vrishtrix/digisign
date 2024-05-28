@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { env } from 'hono/adapter';
 import { csrf } from 'hono/csrf';
 import { jwt } from 'hono/jwt';
 import { prettyJSON } from 'hono/pretty-json';
@@ -28,7 +29,7 @@ app.use(
 
 app.use('/api/digisign/*', (ctx, next) => {
 	const jwtMiddleware = jwt({
-		secret: ctx.env.JWT_SECRET,
+		secret: env(ctx).JWT_SECRET,
 	});
 
 	return jwtMiddleware(ctx, next);
