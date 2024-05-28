@@ -37,6 +37,7 @@ api.post('/digisign/signpdf', async (ctx) => {
 		pointY,
 		signHeight,
 		signWidth,
+		pfxPassword,
 	} = await ctx.req.parseBody<SignPdfRequestParams>();
 
 	const pdfBuffer = await file.arrayBuffer();
@@ -63,7 +64,9 @@ api.post('/digisign/signpdf', async (ctx) => {
 
 	const pdfWithPlaceholderBytes = await pdfDoc.save();
 
-	const signer = new P12Signer(certificateBuffer, { passphrase: 'emudhra' });
+	const signer = new P12Signer(certificateBuffer, {
+		passphrase: pfxPassword,
+	});
 	const signedPdf = await signpdf.sign(pdfWithPlaceholderBytes, signer);
 
 	return ctx.body(signedPdf.toString('base64'), 201);

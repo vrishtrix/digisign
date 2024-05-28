@@ -29,4 +29,5 @@ export type SignPdfRequestParams = {
 	signWidth: string;
 	pfxId: string;
 	signOnPage: 'F' | 'L' | 'A';
+	pfxPassword: string;
 };
