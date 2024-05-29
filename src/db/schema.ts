@@ -7,7 +7,7 @@ export const customers = pgTable(
 		email: text('email').notNull().unique(),
 		firstName: text('first_name'),
 		lastName: text('last_name'),
-		password: text('password'),
+		password: text('password').notNull(),
 	},
 	(customers) => ({
 		emailIndex: uniqueIndex('email_idx').on(customers.email),

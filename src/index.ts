@@ -11,8 +11,6 @@ import type { JwtVariables } from 'hono/jwt';
 
 type Bindings = {
 	JWT_SECRET: string;
-	CSRF_ORIGIN: string;
-	POSTGRES_URL: string;
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: JwtVariables }>();
