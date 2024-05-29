@@ -16,6 +16,6 @@ export const customers = pgTable(
 
 export const certificates = pgTable('certificates', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	belongsTo: text('belongs_to').notNull(),
+	belongsTo: uuid('belongs_to').notNull(),
 	value: text('value').notNull(),
 });
