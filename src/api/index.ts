@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
+import { env } from 'hono/adapter';
+import { sign as signJWT } from 'hono/jwt';
 import { PDFDocument } from 'pdf-lib';
 
 import db from '@/db/client';
@@ -14,8 +16,11 @@ import type {
 	SignPdfRequestParams,
 	SignupRequestParams,
 } from '@/types';
+type Bindings = {
+	JWT_SECRET: string;
+};
 
-const api = new Hono();
+const api = new Hono<{ Bindings: Bindings }>();
 
 // TODO: Create middleware to check 'Content-Type' header
 
@@ -67,6 +72,29 @@ api.post('/customer/login', async (ctx) => {
 	}
 
 	const { email, password } = await ctx.req.json<LoginRequestParams>(); // TODO: use req.valid() and validate fields before working with them
+
+	const user = await db
+		.select()
+		.from(customers)
+		.where(eq(customers.email, email));
+
+	if (user.length === 0) {
+		return ctx.body('User does not exist.');
+	}
+
+	if (!(await bcrypt.compare(password, user[0].password))) {
+		return ctx.body('Invalid password');
+	}
+
+	const token = await signJWT(
+		{
+			email: user[0].email,
+			exp: Math.floor(Date.now() / 1000) + 60 * 30,
+		},
+		env(ctx).JWT_SECRET,
+	);
+
+	return ctx.body(token);
 });
 
 api.post('/digisign/uploadpfx', (ctx) => {
