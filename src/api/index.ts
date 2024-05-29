@@ -1,20 +1,72 @@
+import bcrypt from 'bcryptjs';
+import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { PDFDocument } from 'pdf-lib';
 
+import db from '@/db/client';
+import { customers } from '@/db/schema';
 import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { P12Signer } from '@signpdf/signer-p12';
 import signpdf from '@signpdf/signpdf';
 
-import type { SignPdfRequestParams } from '@/types';
+import type {
+	LoginRequestParams,
+	SignPdfRequestParams,
+	SignupRequestParams,
+} from '@/types';
 
 const api = new Hono();
 
-api.post('/customer/signup', (ctx) => {
-	return ctx.body('Signup successful');
+// TODO: Create middleware to check 'Content-Type' header
+
+api.post('/customer/signup', async (ctx) => {
+	if (!ctx.req.header('Content-Type')?.includes('application/json')) {
+		ctx.status(415);
+		return ctx.body(
+			'This endpoint only supports the application/json content type.',
+		);
+	}
+
+	const { email, password, confirmPassword, firstName, lastName } =
+		await ctx.req.json<SignupRequestParams>(); // TODO: use req.valid() and validate fields before working with them
+
+	if (password !== confirmPassword) {
+		ctx.status(400);
+		return ctx.body('Password and Confirm Password do not match');
+	}
+
+	const salt = await bcrypt.genSalt(10);
+	const hashedPassword = await bcrypt.hash(password, salt);
+
+	const user = await db
+		.select()
+		.from(customers)
+		.where(eq(customers.email, email));
+
+	if (user.length !== 0) {
+		ctx.status(409);
+		return ctx.body('User already exists.');
+	}
+
+	db.insert(customers).values({
+		email,
+		firstName,
+		lastName,
+		password: hashedPassword,
+	});
+
+	return ctx.body('User created successfully!');
 });
 
-api.post('/customer/login', (ctx) => {
-	return ctx.body('Login successful');
+api.post('/customer/login', async (ctx) => {
+	if (!ctx.req.header('Content-Type')?.includes('application/json')) {
+		ctx.status(415);
+		return ctx.body(
+			'This endpoint only supports the application/json content type.',
+		);
+	}
+
+	const { email, password } = await ctx.req.json<LoginRequestParams>(); // TODO: use req.valid() and validate fields before working with them
 });
 
 api.post('/digisign/uploadpfx', (ctx) => {
