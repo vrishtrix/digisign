@@ -6,13 +6,14 @@ import { sign as signJWT } from 'hono/jwt';
 import { PDFDocument } from 'pdf-lib';
 
 import db from '@/db/client';
-import { customers } from '@/db/schema';
+import { certificates, customers } from '@/db/schema';
 import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { P12Signer } from '@signpdf/signer-p12';
 import signpdf from '@signpdf/signpdf';
 
 import type {
 	LoginRequestParams,
+	PfxUploadRequestParams,
 	SignPdfRequestParams,
 	SignupRequestParams,
 } from '@/types';
@@ -97,8 +98,30 @@ api.post('/customer/login', async (ctx) => {
 	return ctx.body(token);
 });
 
-api.post('/digisign/uploadpfx', (ctx) => {
-	return ctx.body('PFX Fule upload successful');
+api.post('/digisign/uploadpfx', async (ctx) => {
+	const { file, fileType } =
+		await ctx.req.parseBody<PfxUploadRequestParams>();
+
+	const fileAsBaseEncodedStr = Buffer.from(await file.arrayBuffer()).toString(
+		'base64',
+	);
+
+	const { email } = ctx.get('jwtPayload');
+
+	const user = await db
+		.select()
+		.from(customers)
+		.where(eq(customers.email, email));
+
+	const cert = await db
+		.insert(certificates)
+		.values({
+			belongsTo: user[0].id,
+			value: fileAsBaseEncodedStr,
+		})
+		.returning({ insertedId: certificates.id });
+
+	return ctx.body(cert[0].insertedId);
 });
 
 api.post('/digisign/signpdf', async (ctx) => {
