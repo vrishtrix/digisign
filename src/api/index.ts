@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { env } from 'hono/adapter';
 import { sign as signJWT } from 'hono/jwt';
@@ -99,6 +99,13 @@ api.post('/customer/login', async (ctx) => {
 });
 
 api.post('/digisign/uploadpfx', async (ctx) => {
+	if (!ctx.req.header('Content-Type')?.includes('multipart/form-data')) {
+		ctx.status(415);
+		return ctx.body(
+			'This endpoint only supports the multipart/form-data content type.',
+		);
+	}
+
 	const { file, fileType } =
 		await ctx.req.parseBody<PfxUploadRequestParams>();
 
@@ -140,11 +147,33 @@ api.post('/digisign/signpdf', async (ctx) => {
 		pointY,
 		signHeight,
 		signWidth,
+		pfxId,
 		pfxPassword,
 	} = await ctx.req.parseBody<SignPdfRequestParams>();
 
+	const { email } = ctx.get('jwtPayload');
+
+	const user = await db
+		.select()
+		.from(customers)
+		.where(eq(customers.email, email));
+
+	const certificate = await db
+		.select()
+		.from(certificates)
+		.where(
+			and(
+				eq(certificates.belongsTo, user[0].id),
+				eq(certificates.id, pfxId),
+			),
+		);
+
+	if (certificate.length === 0) {
+		return ctx.body('Certificate does not exist');
+	}
+
 	const pdfBuffer = await file.arrayBuffer();
-	const certificateBuffer = Buffer.from('', 'base64'); // TODO: Replace with actual certificate
+	const certificateBuffer = Buffer.from(certificate[0].value, 'base64');
 
 	const pdfDoc = await PDFDocument.load(pdfBuffer);
 
@@ -167,12 +196,16 @@ api.post('/digisign/signpdf', async (ctx) => {
 
 	const pdfWithPlaceholderBytes = await pdfDoc.save();
 
-	const signer = new P12Signer(certificateBuffer, {
-		passphrase: pfxPassword,
-	});
-	const signedPdf = await signpdf.sign(pdfWithPlaceholderBytes, signer);
+	try {
+		const signer = new P12Signer(certificateBuffer, {
+			passphrase: pfxPassword,
+		});
 
-	return ctx.body(signedPdf.toString('base64'), 201);
+		const signedPdf = await signpdf.sign(pdfWithPlaceholderBytes, signer);
+		return ctx.body(signedPdf.toString('base64'), 201);
+	} catch (err) {
+		return ctx.body('PFX password invalid.');
+	}
 });
 
 export default api;
