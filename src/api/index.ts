@@ -17,6 +17,7 @@ import type {
 	SignPdfRequestParams,
 	SignupRequestParams,
 } from '@/types';
+
 type Bindings = {
 	JWT_SECRET: string;
 };
@@ -54,7 +55,7 @@ api.post('/customer/signup', async (ctx) => {
 		return ctx.body('User already exists.');
 	}
 
-	db.insert(customers).values({
+	await db.insert(customers).values({
 		email,
 		firstName,
 		lastName,
@@ -180,16 +181,16 @@ api.post('/digisign/signpdf', async (ctx) => {
 	const widgetRect = [
 		Number.parseInt(pointX),
 		Number.parseInt(pointY),
-		Number.parseInt(signHeight),
-		Number.parseInt(signWidth),
+		Number.parseInt(pointX) + Number.parseInt(signWidth),
+		Number.parseInt(pointY) - Number.parseInt(signHeight),
 	];
 
 	pdflibAddPlaceholder({
 		pdfDoc,
-		reason: signReason ?? '',
-		location: signLocation ?? '',
-		contactInfo: '',
-		name: '',
+		reason: signReason ?? '<no reason>',
+		location: signLocation ?? '<no location>',
+		contactInfo: user[0].email,
+		name: user[0].firstName ?? '<no name>',
 		widgetRect,
 		signatureLength: 12580,
 	});
