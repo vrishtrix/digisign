@@ -187,6 +187,7 @@ api.post('/digisign/signpdf', async (ctx) => {
 
 	pdflibAddPlaceholder({
 		pdfDoc,
+		pdfPage: pdfDoc.getPage(pdfDoc.getPageCount() - 1),
 		reason: signReason ?? '<no reason>',
 		location: signLocation ?? '<no location>',
 		contactInfo: user[0].email,
@@ -195,7 +196,9 @@ api.post('/digisign/signpdf', async (ctx) => {
 		signatureLength: 12580,
 	});
 
-	const pdfWithPlaceholderBytes = await pdfDoc.save();
+	const pdfWithPlaceholderBytes = await pdfDoc.save({
+		updateFieldAppearances: true,
+	});
 
 	try {
 		const signer = new P12Signer(certificateBuffer, {
