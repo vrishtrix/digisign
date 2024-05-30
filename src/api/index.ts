@@ -3,10 +3,11 @@ import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { env } from 'hono/adapter';
 import { sign as signJWT } from 'hono/jwt';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 import db from '@/db/client';
 import { certificates, customers } from '@/db/schema';
+import { greenCheck } from '@/images';
 import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { P12Signer } from '@signpdf/signer-p12';
 import signpdf from '@signpdf/signpdf';
@@ -177,6 +178,7 @@ api.post('/digisign/signpdf', async (ctx) => {
 
 	const pdfDoc = await PDFDocument.load(pdfBuffer);
 
+	const lastPage = pdfDoc.getPage(pdfDoc.getPageCount() - 1);
 	const widgetRect = [
 		Number.parseInt(pointX),
 		Number.parseInt(pointY),
@@ -186,13 +188,39 @@ api.post('/digisign/signpdf', async (ctx) => {
 
 	pdflibAddPlaceholder({
 		pdfDoc,
-		pdfPage: pdfDoc.getPage(pdfDoc.getPageCount() - 1),
+		pdfPage: lastPage,
 		reason: signReason ?? '<no reason>',
 		location: signLocation ?? '<no location>',
 		contactInfo: user[0].email,
 		name: user[0].firstName ?? '<no name>',
 		widgetRect,
 		signatureLength: 12580,
+	});
+
+	const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+	const verifiedImage = await pdfDoc.embedPng(greenCheck);
+
+	lastPage.drawText(
+		`This document was digitally signed by ${user[0].firstName} ${
+			user[0].lastName
+		} on ${new Date().toISOString()}`,
+		{
+			x: widgetRect[0] + Number.parseInt(signHeight) + 5,
+			y: widgetRect[1],
+			maxWidth:
+				Number.parseInt(signWidth) - Number.parseInt(signHeight) - 5,
+			font: helveticaFont,
+			color: rgb(0, 0, 0),
+			size: 8,
+			lineHeight: 8.5,
+		},
+	);
+
+	lastPage.drawImage(verifiedImage, {
+		x: widgetRect[0],
+		y: widgetRect[1] - Number.parseInt(signHeight),
+		width: Number.parseInt(signHeight),
+		height: Number.parseInt(signHeight),
 	});
 
 	const pdfWithPlaceholderBytes = await pdfDoc.save({
