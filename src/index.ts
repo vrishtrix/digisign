@@ -6,6 +6,7 @@ import { prettyJSON } from 'hono/pretty-json';
 import { timeout } from 'hono/timeout';
 
 import apiRoutes from '@/api';
+import { serve } from '@hono/node-server';
 
 import type { JwtVariables } from 'hono/jwt';
 
@@ -35,4 +36,14 @@ app.get('/', (c) => {
 	return c.text('Hello Hono!');
 });
 
-export default app;
+// For bun:
+// export default app;
+
+// For node:
+const port = 3000;
+
+console.log(`Server is running on port ${port}`);
+serve({
+	fetch: app.fetch,
+	port,
+});

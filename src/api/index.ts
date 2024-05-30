@@ -107,8 +107,7 @@ api.post('/digisign/uploadpfx', async (ctx) => {
 		);
 	}
 
-	const { file, fileType } =
-		await ctx.req.parseBody<PfxUploadRequestParams>();
+	const { file } = await ctx.req.parseBody<PfxUploadRequestParams>();
 
 	const fileAsBaseEncodedStr = Buffer.from(await file.arrayBuffer()).toString(
 		'base64',
